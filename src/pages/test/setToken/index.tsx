@@ -20,6 +20,14 @@ const formItemLayout = {
   },
 };
 
+const num2btc = (number: number, decimals: number) => {
+  return ethers.BigNumber.from(number).mul(ethers.BigNumber.from(10).pow(decimals));
+};
+
+const btc2num = (number: ethers.BigNumber, decimals: number) => {
+  return ethers.BigNumber.from(number).div(ethers.BigNumber.from(10).pow(decimals));
+};
+
 
 export default () => {
   const [form1] = Form.useForm();
@@ -36,6 +44,7 @@ export default () => {
       totalSupply: string,
       governance: string,
       address: string,
+      decimals: number,
     } | undefined,
   }>({
     loading: false,
@@ -55,7 +64,8 @@ export default () => {
   const handleTransfer = async () => {
     if (checkContract()) {
       const values = await form1.validateFields();
-      const res = await state.contract?.mint(values.address, ethers.BigNumber.from(values.amount))
+      const { decimals = 0 } = state.contractInfo || {};
+      const res = await state.contract?.mint(values.address, num2btc(values.amount, decimals))
         .catch((e: any) => {
           message.error(`铸币失败: ${JSON.stringify(e)}`)
         });
@@ -76,14 +86,19 @@ export default () => {
     }));
 
     const totalSupply = await contract.totalSupply();
+    console.log(totalSupply.toString())
+    
     const governance = await contract.governance();
-
+    const decimals = await contract.decimals();
+    console.log(ethers.BigNumber.from(10).pow(decimals).toString())
+    console.log(btc2num(totalSupply.toString(), decimals).toString())
     setState(pstate => ({
       ...pstate,
       contractInfo: {
         governance,
-        totalSupply: totalSupply.toNumber(),
+        totalSupply: btc2num(totalSupply, decimals).toString(),
         address: data.address,
+        decimals,
       },
     }));
   };
@@ -133,13 +148,14 @@ export default () => {
   const handleGetBlance = async () => { 
     if (checkContract()) {
       const values = await form6.validateFields();
+      const { decimals = 0 } = state.contractInfo || {};
       const res = await state.contract?.balanceOf(values.address)
         .catch((e: any) => {
           message.error(`查询失败: ${JSON.stringify(e)}`)
         });
 
       if (res) {
-        message.success(`查询成功: ${values.address}, amout： ${res.toNumber()}`);
+        message.success(`查询成功: ${values.address}, amout： ${btc2num(res, decimals)}`);
       }
     }
   };
